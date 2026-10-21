@@ -7,14 +7,16 @@ import { BarbersModule } from './barbers/barbers.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
 import { ServicesModule } from './services/services.module';
+import { WorkingHoursModule } from './working-hours/working-hours.module';
 
 @Module({
-  imports: [
+    imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
     AuthModule,
     ServicesModule,
     BarbersModule,
+    WorkingHoursModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService],
