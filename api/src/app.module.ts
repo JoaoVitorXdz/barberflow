@@ -8,6 +8,7 @@ import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
 import { ServicesModule } from './services/services.module';
 import { WorkingHoursModule } from './working-hours/working-hours.module';
+import { TimeBlocksModule } from './time-blocks/time-blocks.module';
 
 @Module({
     imports: [
@@ -17,6 +18,7 @@ import { WorkingHoursModule } from './working-hours/working-hours.module';
     ServicesModule,
     BarbersModule,
     WorkingHoursModule,
+    TimeBlocksModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService],
