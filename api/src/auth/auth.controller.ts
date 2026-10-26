@@ -11,6 +11,7 @@ import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 import * as authTypes from './auth.types';
 import { LoginDto } from './dto/login.dto';
+import { RegisterCustomerDto } from './dto/register-customer.dto';
 import { RegisterTenantDto } from './dto/register-tenant.dto';
 
 @Controller('auth')
@@ -20,6 +21,11 @@ export class AuthController {
   @Post('register-tenant')
   registerTenant(@Body() dto: RegisterTenantDto) {
     return this.auth.registerTenant(dto);
+  }
+
+  @Post('register-customer')
+  registerCustomer(@Body() dto: RegisterCustomerDto) {
+    return this.auth.registerCustomer(dto);
   }
 
   @Post('login')

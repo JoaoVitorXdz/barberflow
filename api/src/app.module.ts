@@ -10,6 +10,7 @@ import { ServicesModule } from './services/services.module';
 import { WorkingHoursModule } from './working-hours/working-hours.module';
 import { TimeBlocksModule } from './time-blocks/time-blocks.module';
 import { AvailabilityModule } from './availability/availability.module';
+import { AppointmentsModule } from './appointments/appointments.module';
 
 @Module({
     imports: [
@@ -21,6 +22,7 @@ import { AvailabilityModule } from './availability/availability.module';
     WorkingHoursModule,
     TimeBlocksModule,
     AvailabilityModule,
+    AppointmentsModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService],
