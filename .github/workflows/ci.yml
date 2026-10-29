@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # Um PostgreSQL de verdade, em container, só para esta execução
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: barberflow
+          POSTGRES_PASSWORD: barberflow
+          POSTGRES_DB: barberflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U barberflow"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: api
+
+    # Valores descartáveis, usados só no CI (nada disto é segredo real)
+    env:
+      DATABASE_URL: postgresql://barberflow:barberflow@localhost:5432/barberflow
+      JWT_SECRET: segredo-descartavel-usado-apenas-no-ci
+      JWT_EXPIRES_IN_SECONDS: "3600"
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Criar o schema do banco
+        run: psql "postgresql://barberflow:barberflow@localhost:5432/barberflow" -f ../db/001_init.sql
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Testes unitários
+        run: npm test
+
+      - name: Testes e2e (inclui o teste de concorrência)
+        run: npm run test:e2e
