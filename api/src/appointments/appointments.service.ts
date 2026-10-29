@@ -11,7 +11,9 @@ import { JwtPayload } from '../auth/auth.types';
 import { DatabaseService } from '../database/database.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 
+// Erros do PostgreSQL que significam "outro cliente ficou com o horário".
 const EXCLUSION_VIOLATION = '23P01';
+const DEADLOCK_DETECTED = '40P01';
 
 export interface AppointmentItem {
   id: string;
@@ -23,6 +25,15 @@ export interface AppointmentItem {
   status: string;
   priceCents: number;
 }
+
+const COLUMNS = `id,
+  barber_id AS "barberId",
+  service_id AS "serviceId",
+  customer_id AS "customerId",
+  lower(period) AS "startsAt",
+  upper(period) AS "endsAt",
+  status,
+  price_cents AS "priceCents"`;
 
 @Injectable()
 export class AppointmentsService {
@@ -85,14 +96,7 @@ export class AppointmentsService {
         `INSERT INTO appointments
            (tenant_id, barber_id, customer_id, service_id, period, price_cents)
          VALUES ($1, $2, $3, $4, tstzrange($5::timestamptz, $6::timestamptz), $7)
-         RETURNING id,
-                   barber_id AS "barberId",
-                   service_id AS "serviceId",
-                   customer_id AS "customerId",
-                   lower(period) AS "startsAt",
-                   upper(period) AS "endsAt",
-                   status,
-                   price_cents AS "priceCents"`,
+         RETURNING ${COLUMNS}`,
         [
           tenantId,
           dto.barberId,
@@ -105,13 +109,80 @@ export class AppointmentsService {
       );
       return result.rows[0];
     } catch (error) {
-      if ((error as { code?: string }).code === EXCLUSION_VIOLATION) {
+      const code = (error as { code?: string }).code;
+      if (code === EXCLUSION_VIOLATION || code === DEADLOCK_DETECTED) {
         throw new ConflictException(
           'Esse horário acabou de ser ocupado por outro cliente',
         );
       }
       throw error;
     }
+  }
+
+  async findAll(
+    user: JwtPayload,
+    from?: string,
+    to?: string,
+  ): Promise<AppointmentItem[]> {
+    if (from && to && new Date(to) <= new Date(from)) {
+      throw new BadRequestException('to deve ser depois de from');
+    }
+
+    // Cliente vê só os seus; barbeiro vê só os dele; dono e recepção veem todos.
+    const customerFilter = user.role === 'customer' ? user.sub : null;
+    const barberUserFilter = user.role === 'barber' ? user.sub : null;
+
+    const result = await this.db.query<AppointmentItem>(
+      `SELECT ${COLUMNS}
+         FROM appointments
+        WHERE tenant_id = $1
+          AND ($2::uuid IS NULL OR customer_id = $2::uuid)
+          AND ($3::uuid IS NULL OR barber_id IN (
+                SELECT id FROM barbers
+                 WHERE user_id = $3::uuid AND tenant_id = $1))
+          AND period && tstzrange(COALESCE($4::timestamptz, now()), $5::timestamptz)
+        ORDER BY lower(period)`,
+      [
+        user.tenantId,
+        customerFilter,
+        barberUserFilter,
+        from ? new Date(from).toISOString() : null,
+        to ? new Date(to).toISOString() : null,
+      ],
+    );
+    return result.rows;
+  }
+
+  async cancel(user: JwtPayload, id: string): Promise<AppointmentItem> {
+    const customerFilter = user.role === 'customer' ? user.sub : null;
+
+    const result = await this.db.query<AppointmentItem>(
+      `UPDATE appointments
+          SET status = 'cancelled'
+        WHERE id = $1 AND tenant_id = $2
+          AND ($3::uuid IS NULL OR customer_id = $3::uuid)
+          AND status = 'scheduled'
+          AND lower(period) > now()
+        RETURNING ${COLUMNS}`,
+      [id, user.tenantId, customerFilter],
+    );
+    if (result.rows.length > 0) {
+      return result.rows[0];
+    }
+
+    // Nada foi alterado: ou não existe (para este usuário), ou não pode mais ser cancelado.
+    const exists = await this.db.query(
+      `SELECT 1 FROM appointments
+        WHERE id = $1 AND tenant_id = $2
+          AND ($3::uuid IS NULL OR customer_id = $3::uuid)`,
+      [id, user.tenantId, customerFilter],
+    );
+    if (exists.rows.length === 0) {
+      throw new NotFoundException('Agendamento não encontrado');
+    }
+    throw new ConflictException(
+      'Só é possível cancelar agendamentos futuros que ainda estão ativos',
+    );
   }
 
   private async resolveCustomerId(
