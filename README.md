@@ -1,6 +1,6 @@
 # BarberFlow
 
-[![CI](https://github.com/JoaozDev/barberflow/actions/workflows/ci.yml/badge.svg)](https://github.com/JoaozDev/barberflow/actions/workflows/ci.yml)
+[![CI](https://github.com/JoaoVitorXdz/barberflow/actions/workflows/ci.yml/badge.svg)](https://github.com/JoaoVitorXdz/barberflow/actions/workflows/ci.yml)
 
 API de agendamento **multi-tenant** para barbearias. Cada barbearia gerencia seus
 barbeiros, serviços e horários; os clientes consultam horários livres e agendam online,
