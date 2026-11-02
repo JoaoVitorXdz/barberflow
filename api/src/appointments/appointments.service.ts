@@ -9,6 +9,10 @@ import { DateTime } from 'luxon';
 import { AvailabilityService } from '../availability/availability.service';
 import { JwtPayload } from '../auth/auth.types';
 import { DatabaseService } from '../database/database.service';
+import {
+  NotificationsService,
+  ScheduledNotification,
+} from '../notifications/notifications.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 
 // Erros do PostgreSQL que significam "outro cliente ficou com o horário".
@@ -40,6 +44,7 @@ export class AppointmentsService {
   constructor(
     private readonly db: DatabaseService,
     private readonly availability: AvailabilityService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async create(
@@ -91,23 +96,37 @@ export class AppointmentsService {
     const endsAt = new Date(startsAt.getTime() + duration * 60_000);
 
     // Camada 2: a exclusion constraint do banco garante, mesmo sob concorrência.
+    // O agendamento e as notificações são gravados na mesma transação.
+    let created: {
+      appointment: AppointmentItem;
+      scheduled: ScheduledNotification[];
+    };
     try {
-      const result = await this.db.query<AppointmentItem>(
-        `INSERT INTO appointments
-           (tenant_id, barber_id, customer_id, service_id, period, price_cents)
-         VALUES ($1, $2, $3, $4, tstzrange($5::timestamptz, $6::timestamptz), $7)
-         RETURNING ${COLUMNS}`,
-        [
+      created = await this.db.transaction(async (client) => {
+        const result = await client.query<AppointmentItem>(
+          `INSERT INTO appointments
+             (tenant_id, barber_id, customer_id, service_id, period, price_cents)
+           VALUES ($1, $2, $3, $4, tstzrange($5::timestamptz, $6::timestamptz), $7)
+           RETURNING ${COLUMNS}`,
+          [
+            tenantId,
+            dto.barberId,
+            customerId,
+            dto.serviceId,
+            startsAtIso,
+            endsAt.toISOString(),
+            price,
+          ],
+        );
+        const appointment = result.rows[0];
+        const scheduled = await this.notifications.createForAppointment(
+          client,
           tenantId,
-          dto.barberId,
-          customerId,
-          dto.serviceId,
-          startsAtIso,
-          endsAt.toISOString(),
-          price,
-        ],
-      );
-      return result.rows[0];
+          appointment.id,
+          startsAt,
+        );
+        return { appointment, scheduled };
+      });
     } catch (error) {
       const code = (error as { code?: string }).code;
       if (code === EXCLUSION_VIOLATION || code === DEADLOCK_DETECTED) {
@@ -117,6 +136,10 @@ export class AppointmentsService {
       }
       throw error;
     }
+
+    // Só depois do commit: se a fila falhar, o agendamento continua válido.
+    await this.notifications.enqueue(created.scheduled);
+    return created.appointment;
   }
 
   async findAll(
@@ -156,18 +179,27 @@ export class AppointmentsService {
   async cancel(user: JwtPayload, id: string): Promise<AppointmentItem> {
     const customerFilter = user.role === 'customer' ? user.sub : null;
 
-    const result = await this.db.query<AppointmentItem>(
-      `UPDATE appointments
-          SET status = 'cancelled'
-        WHERE id = $1 AND tenant_id = $2
-          AND ($3::uuid IS NULL OR customer_id = $3::uuid)
-          AND status = 'scheduled'
-          AND lower(period) > now()
-        RETURNING ${COLUMNS}`,
-      [id, user.tenantId, customerFilter],
-    );
-    if (result.rows.length > 0) {
-      return result.rows[0];
+    const cancelled = await this.db.transaction(async (client) => {
+      const result = await client.query<AppointmentItem>(
+        `UPDATE appointments
+            SET status = 'cancelled'
+          WHERE id = $1 AND tenant_id = $2
+            AND ($3::uuid IS NULL OR customer_id = $3::uuid)
+            AND status = 'scheduled'
+            AND lower(period) > now()
+          RETURNING ${COLUMNS}`,
+        [id, user.tenantId, customerFilter],
+      );
+      if (result.rows.length === 0) {
+        return null;
+      }
+      const removedIds = await this.notifications.removePending(client, id);
+      return { appointment: result.rows[0], removedIds };
+    });
+
+    if (cancelled) {
+      await this.notifications.dequeue(cancelled.removedIds);
+      return cancelled.appointment;
     }
 
     // Nada foi alterado: ou não existe (para este usuário), ou não pode mais ser cancelado.
