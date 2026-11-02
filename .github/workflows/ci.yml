@@ -9,7 +9,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    # Um PostgreSQL de verdade, em container, só para esta execução
+    # Banco e fila de verdade, em containers, só para esta execução
     services:
       postgres:
         image: postgres:16-alpine
@@ -25,6 +25,16 @@ jobs:
           --health-timeout 3s
           --health-retries 10
 
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
     defaults:
       run:
         working-directory: api
@@ -34,6 +44,8 @@ jobs:
       DATABASE_URL: postgresql://barberflow:barberflow@localhost:5432/barberflow
       JWT_SECRET: segredo-descartavel-usado-apenas-no-ci
       JWT_EXPIRES_IN_SECONDS: "3600"
+      REDIS_HOST: localhost
+      REDIS_PORT: "6379"
 
     steps:
       - uses: actions/checkout@v6
