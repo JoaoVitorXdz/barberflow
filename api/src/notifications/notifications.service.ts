@@ -47,6 +47,7 @@ export class NotificationsService {
   }
 
   // Depois do commit: coloca na fila. Falha aqui NÃO derruba o agendamento.
+    // Depois do commit: coloca na fila. Falha aqui NÃO derruba o agendamento.
   async enqueue(scheduled: ScheduledNotification[]): Promise<void> {
     for (const item of scheduled) {
       try {
@@ -65,9 +66,12 @@ export class NotificationsService {
           ),
         );
       } catch (error) {
+        // Redis indisponível: as próximas também falhariam (e cada uma esperaria
+        // o tempo limite). Elas seguem pendentes no banco e o reconciliador cuida delas.
         this.logger.warn(
-          `Não foi possível enfileirar a notificação ${item.id}; ela segue pendente no banco: ${(error as Error).message}`,
+          `Não foi possível enfileirar a notificação ${item.id}; ela e as próximas seguem pendentes no banco: ${(error as Error).message}`,
         );
+        return;
       }
     }
   }

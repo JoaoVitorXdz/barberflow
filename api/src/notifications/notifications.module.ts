@@ -4,6 +4,7 @@ import { ConsoleNotificationSender } from './console-notification-sender';
 import { NOTIFICATION_SENDER } from './notification-sender';
 import { NOTIFICATIONS_QUEUE } from './notifications.constants';
 import { NotificationsProcessor } from './notifications.processor';
+import { NotificationsReconciler } from './notifications.reconciler';
 import { NotificationsService } from './notifications.service';
 
 @Module({
@@ -11,6 +12,7 @@ import { NotificationsService } from './notifications.service';
   providers: [
     NotificationsService,
     NotificationsProcessor,
+    NotificationsReconciler,
     { provide: NOTIFICATION_SENDER, useClass: ConsoleNotificationSender },
   ],
   exports: [NotificationsService],
