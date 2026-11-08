@@ -6,8 +6,8 @@ API de agendamento **multi-tenant** para barbearias. Cada barbearia gerencia seu
 barbeiros, serviços e horários; os clientes consultam horários livres e agendam online,
 sem ligar nem mandar mensagem.
 
-> Status: back-end do núcleo de agendamento concluído e testado. Notificações,
-> front-end e deploy estão no [roadmap](#roadmap).
+> Status: back-end completo e testado (autenticação, agendamento, notificações,
+> documentação e CI). Deploy e front-end estão no [roadmap](#roadmap).
 
 ## O que o sistema faz
 
@@ -17,6 +17,7 @@ sem ligar nem mandar mensagem.
 - Bloqueios de agenda (folga, atestado)
 - Consulta de **horários disponíveis** por barbeiro, serviço e data
 - Agendamento, listagem e cancelamento, com controle de acesso por papel
+- **Notificações assíncronas**: confirmação na hora e lembrete 2 horas antes
 
 ## Destaques de engenharia
 
@@ -27,6 +28,11 @@ impede, por si só, dois agendamentos ativos sobrepostos para o mesmo barbeiro. 
 pré-validação amigável, mas quem decide é o banco. Um teste e2e dispara 10 reservas
 simultâneas do mesmo horário e verifica que exatamente uma passa; outro teste insere
 direto no banco, sem passar pela API, para isolar a constraint.
+
+**Notificações que não se perdem.** A notificação é gravada na mesma transação do
+agendamento; a fila (BullMQ) só cuida da entrega. Se o Redis cair, a reserva continua
+funcionando, e um reconciliador entrega depois o que ficou pendente. Veja
+[Notificações assíncronas](#notificações-assíncronas).
 
 **Isolamento entre barbearias.** O `tenantId` vem sempre do token, nunca do corpo da
 requisição, e toda consulta filtra por ele. Tentar acessar dado de outra barbearia
@@ -46,8 +52,9 @@ segredos fora do repositório.
 
 | Camada | Tecnologia |
 |---|---|
-| API | Node.js 24, TypeScript, NestJS |
+| API | Node.js, TypeScript, NestJS |
 | Banco | PostgreSQL 16 |
+| Filas | Redis, BullMQ |
 | Datas e fusos | luxon |
 | Autenticação | JWT, bcryptjs |
 | Documentação | OpenAPI / Swagger UI |
@@ -62,11 +69,13 @@ Monólito modular: um único deploy, com módulos de fronteiras claras.
 flowchart LR
     Client[Cliente / Front-end] -->|REST + JWT| API[API NestJS]
     API --> PG[(PostgreSQL)]
-    API -.->|em desenvolvimento| Redis[(Redis + BullMQ)]
+    API -->|jobs| Redis[(Redis + BullMQ)]
+    Redis --> Worker[Worker de notificações]
+    Worker --> PG
 ```
 
 Módulos: `auth`, `services`, `barbers`, `working-hours`, `time-blocks`, `availability`,
-`appointments`, `database` e `health`.
+`appointments`, `notifications`, `database` e `health`.
 
 ## Modelo de dados
 
@@ -82,6 +91,7 @@ erDiagram
     BARBERS ||--o{ APPOINTMENTS : atende
     USERS ||--o{ APPOINTMENTS : cliente
     SERVICES ||--o{ APPOINTMENTS : servico
+    APPOINTMENTS ||--o{ NOTIFICATIONS : gera
 ```
 
 O schema completo está em [`db/001_init.sql`](db/001_init.sql).
@@ -123,12 +133,28 @@ especificação OpenAPI em `http://localhost:3000/docs-json`.
 - **Bloqueios:** não é possível bloquear um período que já tem cliente agendado (409).
 - **Cancelamento:** só agendamentos futuros e ativos; ao cancelar, o horário volta a ficar livre.
 
+## Notificações assíncronas
+
+Ao agendar, o cliente recebe uma **confirmação** na hora e um **lembrete 2 horas antes**.
+Cancelar o agendamento remove o lembrete pendente.
+
+- As notificações são gravadas na tabela `notifications` **na mesma transação** do
+  agendamento, então nunca existe agendamento sem suas notificações (nem o contrário).
+- Depois do commit, cada uma vira um job no **BullMQ**, com o id da notificação como
+  id do job (o que impede duplicatas) e com atraso até a hora de enviar. Falhas de envio
+  são repetidas até 5 vezes, com espera crescente.
+- Se o Redis estiver fora do ar, **a reserva não falha**: a notificação segue pendente
+  no banco, e um **reconciliador** (a cada minuto) a coloca na fila quando o Redis volta.
+  A entrega é, portanto, *pelo menos uma vez*.
+- O envio é **simulado** (escrito no log) atrás da interface `NotificationSender`;
+  trocar por um provedor real de e-mail é escrever uma classe nova.
+
 ## Como rodar
 
-Pré-requisitos: **Node.js 24 (LTS)** e **Docker**.
+Pré-requisitos: **Node.js 24 ou superior** e **Docker**.
 
 ```bash
-git clone https://github.com/SEU_USUARIO/barberflow.git
+git clone https://github.com/JoaoVitorXdz/barberflow.git
 cd barberflow
 
 # 1. Banco e Redis (o schema é criado automaticamente na primeira subida)
@@ -157,24 +183,40 @@ A API responde em `http://localhost:3000` e a documentação em `http://localhos
 
 > No Windows (PowerShell), use `copy .env.example .env` no lugar de `cp`.
 
+### Variáveis de ambiente (`api/.env`)
+
+| Variável | Para que serve | Exemplo |
+|---|---|---|
+| `PORT` | Porta da API | `3000` |
+| `DATABASE_URL` | Conexão com o PostgreSQL | `postgresql://barberflow:barberflow@localhost:5432/barberflow` |
+| `JWT_SECRET` | Segredo que assina os tokens | (gerado como acima) |
+| `JWT_EXPIRES_IN_SECONDS` | Validade do token | `3600` |
+| `REDIS_HOST` | Host do Redis | `localhost` |
+| `REDIS_PORT` | Porta do Redis | `6379` |
+| `NOTIFICATIONS_RECONCILE_INTERVAL_MS` | Intervalo do reconciliador; `0` desativa | `60000` |
+
 ## Testes
 
-Com o Docker rodando (o banco precisa estar de pé para os testes e2e), dentro da pasta `api`:
+Com o Docker rodando (o e2e precisa do PostgreSQL e do Redis), dentro da pasta `api`:
 
 ```bash
 # Unitários
 npm test
 
-# E2E: inclui o teste de concorrência com 10 reservas simultâneas
-npx jest --config jest.e2e.config.ts
+# E2E: concorrência (10 reservas simultâneas) e notificações assíncronas
+npm run test:e2e
+
+# Lint e build
+npm run lint
+npm run build
 ```
 
-O teste e2e cria uma barbearia com slug único e apaga seus próprios dados ao final.
+Os testes e2e criam barbearias com slug único e apagam os próprios dados ao final.
 
 ## Integração contínua
 
-A cada push e pull request, o GitHub Actions sobe um PostgreSQL em container, aplica o
-schema, compila o projeto e roda os testes unitários e e2e. O workflow está em
+A cada push e pull request, o GitHub Actions sobe PostgreSQL e Redis em containers,
+aplica o schema, e roda lint, build, testes unitários e testes e2e. O workflow está em
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ## Decisões e trade-offs
@@ -183,10 +225,17 @@ schema, compila o projeto e roda os testes unitários e e2e. O workflow está em
 |---|---|---|
 | Multi-tenancy | Banco único com `tenant_id` em todas as tabelas | Simples de operar e barato; o isolamento é aplicado em toda consulta. Row Level Security fica como evolução |
 | Conflito de horário | `EXCLUDE USING gist` sobre `tstzrange` | O banco garante a regra, mesmo sob concorrência |
+| Notificações | Tabela no banco + fila BullMQ + reconciliador | O banco é a fonte da verdade e a fila é só entrega; falha do Redis nunca derruba uma reserva |
 | Acesso a dados | Driver `pg` com SQL escrito à mão | O núcleo do projeto depende de recursos de SQL (intervalos, constraint de exclusão) que um ORM esconderia |
 | Datas | UTC no banco, fuso por barbearia | Evita bugs de fuso e de horário de verão |
 | Arquitetura | Monólito modular, sem microsserviços | Menor complexidade; os módulos podem ser extraídos depois |
-| Testes e2e | Banco real, sem mocks | O comportamento mais importante (concorrência) só aparece no banco de verdade |
+| Testes e2e | Banco e fila reais, sem mocks | O comportamento mais importante (concorrência, entrega assíncrona) só aparece com a infraestrutura de verdade |
+
+## Limitações conhecidas
+
+- O envio de e-mail é simulado (log); falta integrar um provedor real.
+- O schema é aplicado por um script de inicialização; ainda não há ferramenta de migrations.
+- O isolamento entre barbearias é aplicado pela aplicação; Row Level Security no banco ainda não foi adotado.
 
 ## Roadmap
 
@@ -196,8 +245,10 @@ schema, compila o projeto e roda os testes unitários e e2e. O workflow está em
 - [x] Agendamento, listagem e cancelamento
 - [x] Teste e2e de concorrência
 - [x] Documentação OpenAPI e CI
-- [ ] Notificações assíncronas (confirmação e lembrete) com Redis e BullMQ
-- [ ] Front-end do fluxo do cliente
+- [x] Notificações assíncronas (confirmação e lembrete) com Redis e BullMQ
 - [ ] Deploy com link público
+- [ ] Front-end do fluxo do cliente
+- [ ] Provedor real de e-mail
+- [ ] Migrations versionadas
 - [ ] Row Level Security no PostgreSQL
 - [ ] Reagendamento e lista de espera
