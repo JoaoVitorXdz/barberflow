@@ -13,6 +13,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { ServicesModule } from './services/services.module';
 import { TimeBlocksModule } from './time-blocks/time-blocks.module';
 import { WorkingHoursModule } from './working-hours/working-hours.module';
+import { TenantsModule } from './tenants/tenants.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { WorkingHoursModule } from './working-hours/working-hours.module';
     AvailabilityModule,
     NotificationsModule,
     AppointmentsModule,
+    TenantsModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService],

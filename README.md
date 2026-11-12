@@ -246,9 +246,9 @@ aplica o schema, e roda lint, build, testes unitários e testes e2e. O workflow 
 - [x] Teste e2e de concorrência
 - [x] Documentação OpenAPI e CI
 - [x] Notificações assíncronas (confirmação e lembrete) com Redis e BullMQ
-- [ ] Deploy com link público
-- [ ] Front-end do fluxo do cliente
-- [ ] Provedor real de e-mail
-- [ ] Migrations versionadas
-- [ ] Row Level Security no PostgreSQL
-- [ ] Reagendamento e lista de espera
+- [x] Deploy com link público
+- [x] Front-end do fluxo do cliente
+- [x] Provedor real de e-mail
+- [x] Migrations versionadas
+- [x] Row Level Security no PostgreSQL
+- [x] Reagendamento e lista de espera
