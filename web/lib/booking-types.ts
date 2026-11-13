@@ -29,3 +29,16 @@ export interface BookingResult {
   ok: boolean;
   error?: string;
 }
+
+export interface AppointmentListItem {
+  id: string;
+  barberId: string;
+  serviceId: string;
+  customerId: string;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+  priceCents: number;
+  serviceName: string;
+  barberName: string;
+}

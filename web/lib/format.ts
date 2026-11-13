@@ -18,3 +18,19 @@ export function formatLongDate(isoDate: string): string {
     month: 'long',
   });
 }
+
+// Mostra o instante no fuso da barbearia, não no do navegador.
+export function formatDateTime(iso: string, timeZone: string): string {
+  return new Date(iso).toLocaleString('pt-BR', {
+    timeZone,
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+export function capitalizeFirst(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}

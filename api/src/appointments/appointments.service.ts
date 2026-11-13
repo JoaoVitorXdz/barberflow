@@ -30,6 +30,31 @@ export interface AppointmentItem {
   priceCents: number;
 }
 
+export interface AppointmentListItem extends AppointmentItem {
+  serviceName: string;
+  barberName: string;
+}
+
+const LIST_SQL = `
+  SELECT a.id,
+         a.barber_id AS "barberId",
+         a.service_id AS "serviceId",
+         a.customer_id AS "customerId",
+         lower(a.period) AS "startsAt",
+         upper(a.period) AS "endsAt",
+         a.status,
+         a.price_cents AS "priceCents",
+         s.name AS "serviceName",
+         b.display_name AS "barberName"
+    FROM appointments a
+    JOIN services s ON s.id = a.service_id
+    JOIN barbers b ON b.id = a.barber_id
+   WHERE a.tenant_id = $1
+     AND ($2::uuid IS NULL OR a.customer_id = $2::uuid)
+     AND ($3::uuid IS NULL OR b.user_id = $3::uuid)
+     AND a.period && tstzrange(COALESCE($4::timestamptz, now()), $5::timestamptz)
+   ORDER BY lower(a.period)`;
+
 const COLUMNS = `id,
   barber_id AS "barberId",
   service_id AS "serviceId",
@@ -142,11 +167,11 @@ export class AppointmentsService {
     return created.appointment;
   }
 
-  async findAll(
+    async findAll(
     user: JwtPayload,
     from?: string,
     to?: string,
-  ): Promise<AppointmentItem[]> {
+  ): Promise<AppointmentListItem[]> {
     if (from && to && new Date(to) <= new Date(from)) {
       throw new BadRequestException('to deve ser depois de from');
     }
@@ -155,24 +180,13 @@ export class AppointmentsService {
     const customerFilter = user.role === 'customer' ? user.sub : null;
     const barberUserFilter = user.role === 'barber' ? user.sub : null;
 
-    const result = await this.db.query<AppointmentItem>(
-      `SELECT ${COLUMNS}
-         FROM appointments
-        WHERE tenant_id = $1
-          AND ($2::uuid IS NULL OR customer_id = $2::uuid)
-          AND ($3::uuid IS NULL OR barber_id IN (
-                SELECT id FROM barbers
-                 WHERE user_id = $3::uuid AND tenant_id = $1))
-          AND period && tstzrange(COALESCE($4::timestamptz, now()), $5::timestamptz)
-        ORDER BY lower(period)`,
-      [
-        user.tenantId,
-        customerFilter,
-        barberUserFilter,
-        from ? new Date(from).toISOString() : null,
-        to ? new Date(to).toISOString() : null,
-      ],
-    );
+    const result = await this.db.query<AppointmentListItem>(LIST_SQL, [
+      user.tenantId,
+      customerFilter,
+      barberUserFilter,
+      from ? new Date(from).toISOString() : null,
+      to ? new Date(to).toISOString() : null,
+    ]);
     return result.rows;
   }
 
