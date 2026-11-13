@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { ApiError, apiFetch } from '@/lib/api';
-import { endSession, startSession } from '@/src/lib/session';
+import { endSession, startSession } from '@/lib/session';
 
 type FormState = {
   error?: string;

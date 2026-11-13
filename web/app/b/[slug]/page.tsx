@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { buttonPrimary, buttonSecondary, card } from '@/components/ui';
 import { ApiError, apiFetch } from '@/lib/api';
-import { getSession } from '@/src/lib/session';
+import { getSession } from '@/lib/session';
 import { logoutAction } from '@/app/b/[slug]/actions';
 
 // Permite a rota síncrona/dinâmica bloqueante com Cache Components

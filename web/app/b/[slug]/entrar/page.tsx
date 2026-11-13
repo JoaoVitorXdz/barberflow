@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { connection } from 'next/server';
-import { getSession } from '@/src/lib/session';
+import { getSession } from '@/lib/session';
 import { LoginForm } from './login-form';
 
 // Permite a rota dinâmica blocking com Cache Components ativo no Next.js
