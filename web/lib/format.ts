@@ -58,3 +58,18 @@ export function shiftDate(isoDate: string, days: number): string {
 export function isFuture(iso: string): boolean {
   return new Date(iso).getTime() > Date.now();
 }
+
+// Aceita "45", "45,9" ou "45,90" (também com ponto). Não aceita separador de milhar.
+export function parsePriceToCents(input: string): number | null {
+  const match = /^(\d+)(?:[.,](\d{1,2}))?$/.exec(input.trim());
+  if (!match) return null;
+
+  const reais = Number(match[1]);
+  const cents = match[2] ? Number(match[2].padEnd(2, '0')) : 0;
+  return reais * 100 + cents;
+}
+
+// 4590 -> "45,90"
+export function centsToInput(cents: number): string {
+  return (cents / 100).toFixed(2).replace('.', ',');
+}

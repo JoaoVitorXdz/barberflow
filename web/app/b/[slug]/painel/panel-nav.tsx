@@ -16,7 +16,18 @@ interface PanelNavProps {
 }
 
 export function PanelNav({ slug, tenantName, role, active }: PanelNavProps) {
-  const items = [{ key: 'agenda', label: 'Agenda', href: `/b/${slug}/painel` }];
+    const items = [
+    { key: 'agenda', label: 'Agenda', href: `/b/${slug}/painel` },
+    ...(role === 'owner'
+      ? [
+          {
+            key: 'servicos',
+            label: 'Serviços',
+            href: `/b/${slug}/painel/servicos`,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <div className="space-y-3">
