@@ -41,4 +41,6 @@ export interface AppointmentListItem {
   priceCents: number;
   serviceName: string;
   barberName: string;
+  customerName: string;
+  customerPhone: string | null;
 }

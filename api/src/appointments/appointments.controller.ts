@@ -32,12 +32,12 @@ export class AppointmentsController {
     return this.appointments.create(req.user, dto);
   }
 
-  @Get()
+    @Get()
   findAll(
     @Req() req: authTypes.AuthenticatedRequest,
     @Query() query: ListAppointmentsQueryDto,
   ) {
-    return this.appointments.findAll(req.user, query.from, query.to);
+    return this.appointments.findAll(req.user, query);
   }
 
   @Patch(':id/cancel')

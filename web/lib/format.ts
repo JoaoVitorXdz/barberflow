@@ -34,3 +34,27 @@ export function formatDateTime(iso: string, timeZone: string): string {
 export function capitalizeFirst(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
+
+export function formatTime(iso: string, timeZone: string): string {
+  return new Date(iso).toLocaleTimeString('pt-BR', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+// "Hoje" no fuso da barbearia, no formato AAAA-MM-DD
+export function todayIn(timeZone: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
+}
+
+// Soma (ou subtrai) dias de uma data AAAA-MM-DD
+export function shiftDate(isoDate: string, days: number): string {
+  const date = new Date(`${isoDate}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+export function isFuture(iso: string): boolean {
+  return new Date(iso).getTime() > Date.now();
+}

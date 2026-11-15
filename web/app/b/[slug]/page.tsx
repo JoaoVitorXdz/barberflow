@@ -82,17 +82,21 @@ export default async function BarbershopPage({
         </div>
       )}
 
-      {session && session.role !== 'customer' && (
+           {session && session.role !== 'customer' && (
         <div className={`${card} space-y-4`}>
           <p className="text-zinc-600">
-            Este acesso é de equipe ({session.role}). A área de agendamento é para
-            clientes; entre com uma conta de cliente.
+            Você está conectado como equipe da barbearia.
           </p>
-          <form action={logoutAction.bind(null, slug)}>
-            <button type="submit" className={buttonSecondary}>
-              Sair
-            </button>
-          </form>
+          <div className="flex flex-wrap gap-3">
+            <Link href={`/b/${slug}/painel`} className={buttonPrimary}>
+              Abrir painel
+            </Link>
+            <form action={logoutAction.bind(null, slug)}>
+              <button type="submit" className={buttonSecondary}>
+                Sair
+              </button>
+            </form>
+          </div>
         </div>
       )}
     </section>

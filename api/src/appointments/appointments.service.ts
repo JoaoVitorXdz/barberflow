@@ -33,6 +33,8 @@ export interface AppointmentItem {
 export interface AppointmentListItem extends AppointmentItem {
   serviceName: string;
   barberName: string;
+  customerName: string;
+  customerPhone: string | null;
 }
 
 const LIST_SQL = `
@@ -45,10 +47,13 @@ const LIST_SQL = `
          a.status,
          a.price_cents AS "priceCents",
          s.name AS "serviceName",
-         b.display_name AS "barberName"
+         b.display_name AS "barberName",
+         c.name AS "customerName",
+         c.phone AS "customerPhone"
     FROM appointments a
     JOIN services s ON s.id = a.service_id
     JOIN barbers b ON b.id = a.barber_id
+    JOIN users c ON c.id = a.customer_id
    WHERE a.tenant_id = $1
      AND ($2::uuid IS NULL OR a.customer_id = $2::uuid)
      AND ($3::uuid IS NULL OR b.user_id = $3::uuid)
@@ -167,11 +172,35 @@ export class AppointmentsService {
     return created.appointment;
   }
 
-    async findAll(
+      async findAll(
     user: JwtPayload,
-    from?: string,
-    to?: string,
+    query: { from?: string; to?: string; date?: string },
   ): Promise<AppointmentListItem[]> {
+    let { from, to } = query;
+
+    if (query.date) {
+      if (from || to) {
+        throw new BadRequestException('Use date ou from/to, não os dois');
+      }
+
+      // O dia inteiro, no fuso da barbearia, convertido para UTC.
+      const tenant = await this.db.query<{ timezone: string }>(
+        `SELECT timezone FROM tenants WHERE id = $1`,
+        [user.tenantId],
+      );
+      if (tenant.rows.length === 0) {
+        throw new NotFoundException('Barbearia não encontrada');
+      }
+      const day = DateTime.fromISO(query.date, {
+        zone: tenant.rows[0].timezone,
+      });
+      if (!day.isValid) {
+        throw new BadRequestException('Data inválida');
+      }
+      from = day.startOf('day').toUTC().toISO() ?? undefined;
+      to = day.plus({ days: 1 }).startOf('day').toUTC().toISO() ?? undefined;
+    }
+
     if (from && to && new Date(to) <= new Date(from)) {
       throw new BadRequestException('to deve ser depois de from');
     }

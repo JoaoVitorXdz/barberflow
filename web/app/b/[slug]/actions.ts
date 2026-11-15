@@ -3,9 +3,12 @@
 import { redirect } from 'next/navigation';
 import { ApiError, apiFetch } from '@/lib/api';
 import { endSession, startSession } from '@/lib/session';
+import { STAFF_ROLES } from '@/lib/staff';
 
-type FormState = {
-  error?: string;
+export type FormState = {
+  error?: string | null;
+  success?: string | null;
+  [key: string]: unknown;
 };
 
 interface TokenResponse {
@@ -17,6 +20,8 @@ export async function loginAction(
   _previous: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  let role = 'customer';
+
   try {
     const { accessToken } = await apiFetch<TokenResponse>('/auth/login', {
       method: 'POST',
@@ -28,6 +33,12 @@ export async function loginAction(
       }),
     });
     await startSession(slug, accessToken);
+
+    const me = await apiFetch<{ role: string }>('/auth/me', {
+      auth: false,
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    role = me.role;
   } catch (error) {
     if (error instanceof ApiError) {
       return {
@@ -38,7 +49,7 @@ export async function loginAction(
     throw error;
   }
 
-  redirect(`/b/${slug}`);
+  redirect(STAFF_ROLES.includes(role) ? `/b/${slug}/painel` : `/b/${slug}`);
 }
 
 export async function registerAction(
