@@ -16,7 +16,7 @@ interface PanelNavProps {
 }
 
 export function PanelNav({ slug, tenantName, role, active }: PanelNavProps) {
-    const items = [
+  const items = [
     { key: 'agenda', label: 'Agenda', href: `/b/${slug}/painel` },
     ...(role === 'owner'
       ? [
@@ -24,6 +24,11 @@ export function PanelNav({ slug, tenantName, role, active }: PanelNavProps) {
             key: 'servicos',
             label: 'Serviços',
             href: `/b/${slug}/painel/servicos`,
+          },
+          {
+            key: 'barbeiros',
+            label: 'Barbeiros',
+            href: `/b/${slug}/painel/barbeiros`,
           },
         ]
       : []),

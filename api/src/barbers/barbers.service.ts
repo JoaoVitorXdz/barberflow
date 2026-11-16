@@ -7,6 +7,7 @@ import {
 import { hash } from 'bcryptjs';
 import { DatabaseService } from '../database/database.service';
 import { CreateBarberDto } from './dto/create-barber.dto';
+import { UpdateBarberDto } from './dto/update-barber.dto';
 
 export interface BarberItem {
   id: string;
@@ -93,6 +94,54 @@ export class BarbersService {
       }
       throw error;
     }
+  }
+
+    async update(
+    tenantId: string,
+    id: string,
+    dto: UpdateBarberDto,
+  ): Promise<BarberItem> {
+    await this.db.transaction(async (client) => {
+      const barber = await client.query(
+        `UPDATE barbers
+            SET display_name = COALESCE($3, display_name),
+                active = COALESCE($4, active)
+          WHERE id = $1 AND tenant_id = $2
+          RETURNING id`,
+        [id, tenantId, dto.displayName ?? null, dto.active ?? null],
+      );
+      if (barber.rows.length === 0) {
+        throw new NotFoundException('Barbeiro não encontrado');
+      }
+
+      if (dto.serviceIds) {
+        if (dto.serviceIds.length > 0) {
+          const found = await client.query<{ id: string }>(
+            `SELECT id FROM services
+              WHERE tenant_id = $1 AND id = ANY($2::uuid[])`,
+            [tenantId, dto.serviceIds],
+          );
+          if (found.rows.length !== dto.serviceIds.length) {
+            throw new BadRequestException(
+              'Um ou mais serviços não existem nesta barbearia',
+            );
+          }
+        }
+
+        await client.query(`DELETE FROM barber_services WHERE barber_id = $1`, [
+          id,
+        ]);
+        if (dto.serviceIds.length > 0) {
+          await client.query(
+            `INSERT INTO barber_services (barber_id, service_id)
+             SELECT $1, unnest($2::uuid[])`,
+            [id, dto.serviceIds],
+          );
+        }
+      }
+    });
+
+    return this.findOne(tenantId, id);
   }
 
   async findAll(tenantId: string): Promise<BarberItem[]> {
