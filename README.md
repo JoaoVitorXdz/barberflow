@@ -3,14 +3,15 @@
 [![CI](https://github.com/JoaoVitorXdz/barberflow/actions/workflows/ci.yml/badge.svg)](https://github.com/JoaoVitorXdz/barberflow/actions/workflows/ci.yml)
 
 Sistema de agendamento **multi-tenant** para barbearias. Cada barbearia gerencia seus
-barbeiros, serviços e horários; os clientes consultam horários livres e agendam online,
-sem ligar nem mandar mensagem.
+barbeiros, serviços e horários por um painel; os clientes consultam horários livres e
+agendam online, sem ligar nem mandar mensagem.
 
-O repositório tem uma API em NestJS e um front-end em Next.js, com testes automatizados
-(incluindo um teste de concorrência contra banco real) e integração contínua.
+O repositório tem uma API em NestJS e um front-end em Next.js (área do cliente e painel da
+barbearia), com testes automatizados (incluindo um teste de concorrência contra banco real)
+e integração contínua.
 
-> Status: API completa e front-end do fluxo do cliente prontos. Deploy e painel da
-> barbearia estão no [roadmap](#roadmap).
+> Status: API, área do cliente e painel da barbearia prontos. Deploy e testes do
+> front-end estão no [roadmap](#roadmap).
 
 ## Telas
 
@@ -24,17 +25,27 @@ O repositório tem uma API em NestJS e um front-end em Next.js, com testes autom
 
 ## O que o sistema faz
 
-**Para o cliente (front-end):**
+**Para o cliente:**
 - Cadastro e login por barbearia
 - Escolher serviço, barbeiro, dia e horário, vendo só os horários realmente livres
 - Ver os próprios agendamentos e cancelar (o horário volta a ficar livre)
+- Receber confirmação e lembrete (envio simulado, veja [Notificações](#notificações-assíncronas))
 
-**Para a barbearia (API):**
-- Cadastro de barbearia (tenant), serviços (duração e preço) e barbeiros
-- Jornada semanal por barbeiro, com pausas (vários intervalos no mesmo dia)
-- Bloqueios de agenda (folga, atestado)
-- Controle de acesso por papel: dono, barbeiro, recepção e cliente
-- **Notificações assíncronas**: confirmação na hora e lembrete 2 horas antes
+**Para a barbearia (painel):**
+- **Agenda do dia** por barbeiro, com nome do cliente, valor previsto e cancelamento
+- **Serviços:** criar, editar (nome, duração e preço) e ativar ou desativar
+- **Barbeiros:** cadastrar, escolher quais serviços cada um realiza e ativar ou desativar
+- **Jornada semanal** de cada barbeiro, com até dois períodos por dia
+- **Folgas e bloqueios** de agenda, informados na hora da barbearia
+
+**Acesso por papel:**
+
+| Papel | O que faz |
+|---|---|
+| Cliente | Agenda, vê e cancela os próprios agendamentos |
+| Barbeiro | Vê a própria agenda no painel (somente leitura) |
+| Recepção | Vê a agenda completa e cancela agendamentos |
+| Dono | Tudo isso, mais a gestão de serviços, barbeiros, jornadas e folgas |
 
 ## Destaques de engenharia
 
@@ -52,19 +63,23 @@ agendamento; a fila (BullMQ) só cuida da entrega. Se o Redis cair, a reserva co
 funcionando, e um reconciliador entrega depois o que ficou pendente. Veja
 [Notificações assíncronas](#notificações-assíncronas).
 
-**Front-end seguro por construção.** O navegador conversa só com o Next.js; o servidor do
-Next conversa com a API. O token de login fica num **cookie `httpOnly`**, que nenhum script
-da página consegue ler, e a sessão vale só para a barbearia em que o login foi feito.
-
-**Isolamento entre barbearias.** O `tenantId` vem sempre do token, nunca do corpo da
-requisição, e toda consulta filtra por ele. Tentar acessar dado de outra barbearia
-devolve 404, sem revelar que o dado existe.
-
 **Fuso horário tratado de ponta a ponta.** O banco guarda tudo em UTC (`timestamptz`). A
 jornada é cadastrada em hora local da barbearia, e o cálculo de disponibilidade converte
 corretamente entre os dois. Esse cálculo é uma **função pura** com testes unitários que
 cobrem pausa de almoço, bloqueios, serviços que ultrapassariam o fim da jornada e
-horários que cruzam a meia-noite em UTC.
+horários que cruzam a meia-noite em UTC. No painel, as folgas são digitadas na hora da
+barbearia e convertidas para UTC no servidor, usando o fuso cadastrado da barbearia e
+nunca o do navegador.
+
+**Front-end seguro por construção.** O navegador conversa só com o Next.js; o servidor do
+Next conversa com a API. O token de login fica num **cookie `httpOnly`**, que nenhum script
+da página consegue ler, e a sessão vale só para a barbearia em que o login foi feito. As
+telas do painel conferem o papel no servidor, e a API revalida a permissão em cada chamada.
+
+**Isolamento entre barbearias.** O `tenantId` vem sempre do token, nunca do corpo da
+requisição, e toda consulta filtra por ele. Tentar acessar dado de outra barbearia
+devolve 404, sem revelar que o dado existe. Ao vincular serviços a um barbeiro, a API
+confere que todos pertencem à mesma barbearia.
 
 **Segurança básica na API.** Senhas com bcrypt, JWT com expiração, controle de acesso por
 papel (RBAC), validação de entrada com lista de campos permitidos, SQL sempre
@@ -78,7 +93,7 @@ parametrizado e segredos fora do repositório.
 | API | Node.js, TypeScript, NestJS |
 | Banco | PostgreSQL 16 |
 | Filas | Redis, BullMQ |
-| Datas e fusos | luxon |
+| Datas e fusos | luxon (API) e `Intl` (front-end) |
 | Autenticação | JWT, bcryptjs, cookie httpOnly |
 | Documentação | OpenAPI / Swagger UI |
 | Testes | Jest (unitários e e2e), supertest |
@@ -103,7 +118,7 @@ Estrutura do repositório:
 ```
 barberflow/
 ├── api/               API NestJS: módulos, testes unitários e e2e
-├── web/               Front-end Next.js
+├── web/               Front-end Next.js: área do cliente e painel
 ├── db/                Schema SQL
 ├── scripts/           Dados de demonstração
 ├── docs/images/       Capturas de tela
@@ -135,13 +150,24 @@ O schema completo está em [`db/001_init.sql`](db/001_init.sql).
 
 ## Front-end
 
+**Área do cliente**
+
 | Rota | O que faz |
 |---|---|
 | `/` | Informa o código da barbearia |
 | `/b/[slug]` | Página da barbearia |
-| `/b/[slug]/cadastro` e `/b/[slug]/entrar` | Cadastro e login do cliente |
+| `/b/[slug]/cadastro` e `/b/[slug]/entrar` | Cadastro e login (a equipe cai direto no painel) |
 | `/b/[slug]/agendar` | Escolha de serviço, barbeiro, dia e horário |
 | `/b/[slug]/meus-agendamentos` | Próximos agendamentos (com cancelamento) e histórico |
+
+**Painel da barbearia**
+
+| Rota | Quem acessa | O que faz |
+|---|---|---|
+| `/b/[slug]/painel` | Equipe | Agenda do dia por barbeiro, com navegação entre dias e cancelamento |
+| `/b/[slug]/painel/servicos` | Dono | Criar, editar e ativar ou desativar serviços |
+| `/b/[slug]/painel/barbeiros` | Dono | Lista e cadastro de barbeiros |
+| `/b/[slug]/painel/barbeiros/[barberId]` | Dono | Serviços, jornada semanal e folgas de um barbeiro |
 
 O front usa Server Actions para falar com a API e Suspense para entregar a casca da página
 antes dos dados, como pede o modelo de renderização do Next.js 16.
@@ -164,6 +190,7 @@ especificação OpenAPI em `http://localhost:3000/docs-json`.
 | PATCH | `/services/:id` | Dono |
 | GET | `/barbers` | Autenticado |
 | POST | `/barbers` | Dono |
+| PATCH | `/barbers/:id` | Dono (nome, ativo e serviços que realiza) |
 | GET | `/barbers/:id/working-hours` | Autenticado |
 | PUT | `/barbers/:id/working-hours` | Dono |
 | GET | `/barbers/:id/time-blocks` | Autenticado |
@@ -171,7 +198,7 @@ especificação OpenAPI em `http://localhost:3000/docs-json`.
 | DELETE | `/barbers/:id/time-blocks/:blockId` | Dono |
 | GET | `/availability` | Autenticado |
 | POST | `/appointments` | Cliente, dono ou recepção |
-| GET | `/appointments` | Autenticado (cada papel vê o que lhe cabe) |
+| GET | `/appointments` | Autenticado (cada papel vê o que lhe cabe; aceita `date` ou `from`/`to`) |
 | PATCH | `/appointments/:id/cancel` | Cliente (os próprios), dono ou recepção |
 
 ## Regras de negócio
@@ -183,6 +210,10 @@ especificação OpenAPI em `http://localhost:3000/docs-json`.
   O preço do serviço é copiado para o agendamento, então mudar o preço depois não altera o histórico.
 - **Bloqueios:** não é possível bloquear um período que já tem cliente agendado (409).
 - **Cancelamento:** só agendamentos futuros e ativos; ao cancelar, o horário volta a ficar livre.
+- **Desativar um serviço ou um barbeiro** o esconde dos clientes, sem apagar nada: os
+  agendamentos já marcados continuam valendo.
+- **Agenda do dia:** a API recebe a data (`date=AAAA-MM-DD`) e calcula os limites do dia
+  no fuso da barbearia.
 
 ## Notificações assíncronas
 
@@ -246,14 +277,14 @@ Com a API rodando, em outro terminal, na raiz do projeto:
 node scripts/seed-demo.mjs
 ```
 
-O script cria a **Barbearia Demo** (código `barbearia-demo`) com serviços, dois barbeiros e
-jornadas, e um cliente de teste. Ele só roda contra uma API local.
+O script cria a **Barbearia Demo** (código `barbearia-demo`) com três serviços, dois
+barbeiros com jornada e um cliente de teste. Ele só roda contra uma API local.
 
-| Papel | E-mail | Senha |
-|---|---|---|
-| Cliente | `cliente@demo.com` | `demo12345` |
-| Dono | `dono@demo.com` | `demo12345` |
-| Barbeiro | `carlos@demo.com` | `demo12345` |
+| Papel | E-mail | Senha | Para que serve |
+|---|---|---|---|
+| Cliente | `cliente@demo.com` | `demo12345` | Agendar e cancelar |
+| Dono | `dono@demo.com` | `demo12345` | Abre o painel completo |
+| Barbeiro | `carlos@demo.com` | `demo12345` | Vê só a própria agenda |
 
 > Credenciais de demonstração, só para o ambiente local.
 
@@ -266,7 +297,8 @@ npm install
 npm run dev
 ```
 
-Abra `http://localhost:3001`, informe `barbearia-demo` e entre com o cliente de teste.
+Abra `http://localhost:3001`, informe `barbearia-demo` e entre. Como **cliente**, você cai
+na página da barbearia; como **dono** ou **barbeiro**, no painel.
 
 > No Windows (PowerShell), use `copy` no lugar de `cp`.
 
@@ -335,6 +367,8 @@ O workflow está em [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 | Conflito de horário | `EXCLUDE USING gist` sobre `tstzrange` | O banco garante a regra, mesmo sob concorrência |
 | Notificações | Tabela no banco + fila BullMQ + reconciliador | O banco é a fonte da verdade e a fila é só entrega; falha do Redis nunca derruba uma reserva |
 | Sessão no front | Cookie `httpOnly` + Next.js como intermediário | O token nunca chega ao JavaScript do navegador, e não é preciso configurar CORS |
+| Painel | Mesmo app Next.js, rotas protegidas por papel | Evita um segundo projeto; a API continua sendo a autoridade sobre as permissões |
+| Folgas no painel | Hora local da barbearia convertida para UTC no servidor | O navegador não sabe o fuso da barbearia; o servidor sabe |
 | Acesso a dados | Driver `pg` com SQL escrito à mão | O núcleo do projeto depende de recursos de SQL (intervalos, constraint de exclusão) que um ORM esconderia |
 | Datas | UTC no banco, fuso por barbearia | Evita bugs de fuso e de horário de verão |
 | Arquitetura | Monólito modular, sem microsserviços | Menor complexidade; os módulos podem ser extraídos depois |
@@ -342,10 +376,13 @@ O workflow está em [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ## Limitações conhecidas
 
-- O front-end cobre o fluxo do **cliente**. A gestão da barbearia (serviços, barbeiros,
-  jornadas, bloqueios) é feita pela API (Swagger); não há painel visual ainda.
-- Não existe fluxo para marcar um atendimento como concluído ou falta: no histórico,
-  um agendamento passado e não cancelado aparece como "Realizado".
+- O front-end ainda não tem testes automatizados (a API tem). Cobrir o fluxo de agendar
+  com testes de ponta a ponta está no roadmap.
+- O papel de recepção existe nas regras de acesso, mas ainda não há como cadastrar
+  recepcionistas.
+- Não existe fluxo para marcar um atendimento como concluído ou falta: no histórico do
+  cliente, um agendamento passado e não cancelado aparece como "Realizado".
+- O painel permite até dois períodos de trabalho por dia; a API aceita mais.
 - O envio de e-mail é simulado (log); falta integrar um provedor real.
 - O schema é aplicado por um script de inicialização; ainda não há ferramenta de migrations.
 - O isolamento entre barbearias é aplicado pela aplicação; Row Level Security no banco ainda não foi adotado.
@@ -360,8 +397,11 @@ O workflow está em [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 - [x] Notificações assíncronas (confirmação e lembrete) com Redis e BullMQ
 - [x] Documentação OpenAPI e CI
 - [x] Front-end do fluxo do cliente
-- [ ] Painel da barbearia (agenda do dia, gestão de serviços e barbeiros)
+- [x] Painel da barbearia (agenda, serviços, barbeiros, jornadas e folgas)
+- [ ] Testes de ponta a ponta do front-end (Playwright)
 - [ ] Deploy com link público
+- [ ] Cadastro de recepcionistas
+- [ ] Marcar atendimento como concluído ou falta
 - [ ] Provedor real de e-mail
 - [ ] Migrations versionadas
 - [ ] Row Level Security no PostgreSQL

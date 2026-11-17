@@ -1,13 +1,23 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Suspense } from 'react';
+import { card } from '@/components/ui';
 import { apiFetch } from '@/lib/api';
-import type { BarberItem, ServiceItem } from '@/lib/booking-types';
+import type {
+  BarberItem,
+  ServiceItem,
+  TimeBlockItem,
+  WorkingHoursItem,
+} from '@/lib/booking-types';
+import { capitalizeFirst, formatDateTime } from '@/lib/format';
 import { requireStaff } from '@/lib/staff';
 import { loadTenant } from '@/lib/tenant';
 import { PanelNav } from '../../panel-nav';
 import { BarberActiveButton } from './barber-active-button';
 import { BarberServicesForm } from './barber-services-form';
+import { DeleteBlockButton } from './delete-block-button';
+import { TimeBlockForm } from './time-block-form';
+import { WorkingHoursForm } from './working-hours-form';
 
 type PageProps = { params: Promise<{ slug: string; barberId: string }> };
 
@@ -41,6 +51,16 @@ async function BarberDetail({ params }: PageProps) {
     notFound();
   }
   const selectedIds = barber.services.map((service) => service.id);
+
+  // Só depois de confirmar que o barbeiro existe nesta barbearia
+  const [hours, blocks] = await Promise.all([
+    apiFetch<WorkingHoursItem[]>(
+      `/barbers/${encodeURIComponent(barber.id)}/working-hours`,
+    ),
+    apiFetch<TimeBlockItem[]>(
+      `/barbers/${encodeURIComponent(barber.id)}/time-blocks`,
+    ),
+  ]);
 
   return (
     <section className="space-y-6">
@@ -84,7 +104,7 @@ async function BarberDetail({ params }: PageProps) {
         </div>
       </div>
 
-      {/* A key refaz o formulário quando os serviços salvos mudam */}
+      {/* As keys refazem os formulários quando os dados salvos mudam */}
       <BarberServicesForm
         key={selectedIds.join(',')}
         slug={slug}
@@ -92,6 +112,49 @@ async function BarberDetail({ params }: PageProps) {
         services={services}
         selectedIds={selectedIds}
       />
+
+      <WorkingHoursForm
+        key={JSON.stringify(hours)}
+        slug={slug}
+        barberId={barber.id}
+        hours={hours}
+      />
+
+      <section className={`${card} space-y-4`}>
+        <h2 className="text-lg font-semibold">Folgas e bloqueios</h2>
+
+        {blocks.length === 0 ? (
+          <p className="text-sm text-zinc-600">
+            Nenhuma folga ou bloqueio futuro.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {blocks.map((block) => (
+              <li
+                key={block.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-zinc-200 px-3 py-2"
+              >
+                <div className="text-sm">
+                  <p className="font-medium">
+                    {capitalizeFirst(formatDateTime(block.startsAt, tenant.timezone))}
+                  </p>
+                  <p className="text-zinc-600">
+                    até {formatDateTime(block.endsAt, tenant.timezone)}
+                  </p>
+                  {block.reason && <p className="text-zinc-500">{block.reason}</p>}
+                </div>
+                <DeleteBlockButton
+                  slug={slug}
+                  barberId={barber.id}
+                  blockId={block.id}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <TimeBlockForm slug={slug} barberId={barber.id} />
+      </section>
     </section>
   );
 }

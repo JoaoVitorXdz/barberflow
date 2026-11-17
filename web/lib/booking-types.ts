@@ -44,3 +44,16 @@ export interface AppointmentListItem {
   customerName: string;
   customerPhone: string | null;
 }
+
+export interface WorkingHoursItem {
+  weekday: number;
+  startTime: string;
+  endTime: string;
+}
+
+export interface TimeBlockItem {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  reason: string | null;
+}
