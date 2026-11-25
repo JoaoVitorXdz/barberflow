@@ -14,7 +14,7 @@ type FormState = {
 const initialState: FormState = {};
 const SLOTS = ['a', 'b'] as const;
 const timeInput =
-  'rounded-md border border-zinc-300 bg-white px-2 py-1.5 outline-none focus:border-zinc-900';
+  'rounded-sm border border-zinc-400 bg-white px-2 py-1.5 focus:border-zinc-900';
 
 export function WorkingHoursForm({
   slug,

@@ -1,3 +1,5 @@
+import { inputClass } from './ui';
+
 interface FieldProps {
   label: string;
   name: string;
@@ -22,8 +24,15 @@ export function Field({
   inputMode,
 }: FieldProps) {
   return (
-    <label className="block space-y-1">
-      <span className="text-sm font-medium">{label}</span>
+    <label className="group block space-y-1.5">
+      <span className="flex items-center justify-between text-sm font-bold tracking-wide text-zinc-900 transition-colors group-focus-within:text-pole-blue">
+        <span>{label}</span>
+        {!required && (
+          <span className="text-[11px] font-medium tracking-normal text-zinc-400">
+            opcional
+          </span>
+        )}
+      </span>
       <input
         name={name}
         type={type}
@@ -33,7 +42,7 @@ export function Field({
         placeholder={placeholder}
         defaultValue={defaultValue}
         inputMode={inputMode}
-        className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-zinc-900"
+        className={`${inputClass} transition-colors duration-150 hover:border-zinc-600`}
       />
     </label>
   );

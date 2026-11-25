@@ -74,9 +74,9 @@ async function BarberDetail({ params }: PageProps) {
       <div className="space-y-2">
         <Link
           href={`/b/${slug}/painel/barbeiros`}
-          className="text-sm text-zinc-500 underline-offset-2 hover:underline"
+                    className="text-sm text-zinc-700 underline underline-offset-2 hover:text-zinc-900"
         >
-          ← Barbeiros
+           Barbeiros
         </Link>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

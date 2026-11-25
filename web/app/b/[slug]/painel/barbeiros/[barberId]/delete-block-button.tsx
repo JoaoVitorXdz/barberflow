@@ -27,17 +27,21 @@ export function DeleteBlockButton({
   }
 
   return (
-    <div className="space-y-1 text-right">
+    <div className="space-y-1.5 text-right">
       <button
         type="button"
         onClick={handleClick}
         disabled={pending}
-        className={buttonSecondary}
+        className={`${buttonSecondary} cursor-pointer px-3.5 py-1.5 text-xs hover:border-red-600 hover:bg-red-50 hover:text-red-700 active:scale-[0.98]`}
       >
-        {pending ? 'Removendo...' : 'Remover'}
+        {pending ? 'Removendo...' : 'Remover folga'}
       </button>
+
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p
+          role="alert"
+          className="rounded-sm border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700"
+        >
           {error}
         </p>
       )}

@@ -34,17 +34,25 @@ export function BarberActiveButton({
   }
 
   return (
-    <div className="space-y-1 text-right">
+    <div className="space-y-1.5 text-right">
       <button
         type="button"
         onClick={handleClick}
         disabled={pending}
-        className={buttonSecondary}
+        className={`${buttonSecondary} cursor-pointer px-4 py-2 text-sm transition-all active:scale-[0.98] ${
+          !active
+            ? 'border-emerald-700/40 bg-emerald-50/70 text-emerald-900 hover:border-emerald-700 hover:bg-emerald-100/70'
+            : ''
+        }`}
       >
-        {active ? 'Desativar' : 'Ativar'}
+        {pending ? 'Atualizando...' : active ? 'Desativar barbeiro' : 'Ativar barbeiro'}
       </button>
+
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p
+          role="alert"
+          className="rounded-sm border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700"
+        >
           {error}
         </p>
       )}

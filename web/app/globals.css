@@ -1,10 +1,268 @@
 @import "tailwindcss";
 
-:root {
-  color-scheme: light;
+@theme {
+  --color-pole-red: #b3262e;
+  --color-pole-blue: #2a4f8f;
+  --color-brass: #a9822f;
+
+  --color-zinc-50: #f2f4f1;
+  --color-zinc-100: #e7eae6;
+  --color-zinc-200: #d5dad5;
+  --color-zinc-300: #b7bfbd;
+  --color-zinc-400: #7c8987;
+  --color-zinc-500: #5f6d70;
+  --color-zinc-600: #475664;
+  --color-zinc-700: #334156;
+  --color-zinc-800: #1f2e47;
+  --color-zinc-900: #14223b;
+  --color-zinc-950: #0b1426;
 }
 
-body {
-  background: #fafafa;
-  color: #18181b;
+@theme inline {
+  --font-display: var(--font-bevan), ui-serif, Georgia, serif;
+  --font-sans: var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  p,
+  li {
+    text-wrap: pretty;
+  }
+
+  body {
+    background-color: var(--color-zinc-50);
+    background-image: radial-gradient(
+      rgb(20 34 59 / 0.06) 1px,
+      transparent 1px
+    );
+    background-size: 20px 20px;
+    color: var(--color-zinc-900);
+    font-size: 1.0625rem;
+    line-height: 1.55;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-synthesis-weight: none;
+    line-height: 1.1;
+    text-wrap: balance;
+  }
+
+  ::placeholder {
+    color: var(--color-zinc-500);
+    opacity: 1;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-pole-blue);
+    outline-offset: 2px;
+  }
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 3px solid var(--color-pole-blue) !important;
+    outline-offset: 1px;
+  }
+}
+
+@layer components {
+  .pole-stripe {
+    height: 10px;
+    background-image: repeating-linear-gradient(
+      -45deg,
+      var(--color-pole-red) 0 14px,
+      #fff 14px 28px,
+      var(--color-pole-blue) 28px 42px,
+      #fff 42px 56px
+    );
+    background-size: 79.196px 10px;
+  }
+
+  .pole-stripe-loading {
+    animation: pole-slide 1.1s linear infinite;
+  }
+
+  /* Poste de barbeiro girando continuamente com profundidade 3D */
+  .pole {
+    position: relative;
+    width: 74px;
+    height: 276px;
+    border: 3px solid var(--color-zinc-900);
+    border-radius: 37px;
+    background-color: #fff;
+    box-shadow:
+      0 22px 32px -12px rgb(20 34 59 / 0.25),
+      inset 0 0 0 1px rgb(255 255 255 / 0.45);
+    background-image:
+      linear-gradient(
+        90deg,
+        rgb(0 0 0 / 0.25),
+        rgb(255 255 255 / 0.36) 28%,
+        rgb(255 255 255 / 0) 55%,
+        rgb(0 0 0 / 0.3)
+      ),
+      repeating-linear-gradient(
+        45deg,
+        var(--color-pole-red) 0 22px,
+        #fff 22px 44px,
+        var(--color-pole-blue) 44px 66px,
+        #fff 66px 88px
+      );
+    background-size:
+      100% 100%,
+      124.45px 124.45px;
+    animation: pole-spin-loop 4.5s linear infinite;
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .pole:hover {
+    transform: translateY(-4px) scale(1.02);
+    animation-duration: 2s;
+  }
+
+  .pole::before,
+  .pole::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    width: 94px;
+    height: 20px;
+    translate: -50% 0;
+    border: 2px solid var(--color-zinc-900);
+    border-radius: 6px;
+    box-shadow: 0 3px 6px rgb(20 34 59 / 0.18);
+    background: linear-gradient(180deg, #d1ad57, var(--color-brass) 55%, #7a5a14);
+  }
+  .pole::before {
+    top: -16px;
+  }
+  .pole::after {
+    bottom: -16px;
+  }
+
+  .sign {
+    position: relative;
+    border-radius: 4px;
+    background: var(--color-zinc-900);
+    color: var(--color-zinc-50);
+    padding: 2.25rem 1.5rem;
+    text-align: center;
+  }
+  .sign::before {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border: 2px solid var(--color-brass);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+
+  /* Card principal com detalhe em latão */
+  .brass-card {
+    position: relative;
+    border-radius: 4px;
+    border: 1px solid var(--color-zinc-300);
+    border-top: 3px solid var(--color-brass);
+    background: #fff;
+    box-shadow:
+      0 12px 28px -6px rgb(20 34 59 / 0.08),
+      0 4px 10px -6px rgb(20 34 59 / 0.05);
+    transition:
+      transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .brass-card:focus-within {
+    box-shadow:
+      0 18px 34px -8px rgb(20 34 59 / 0.13),
+      0 6px 14px -6px rgb(20 34 59 / 0.07);
+  }
+
+  /* Cards de passos com elevação suave no hover */
+  .step-card {
+    position: relative;
+    border-radius: 4px;
+    border: 1px solid var(--color-zinc-300);
+    background: #fff;
+    transition:
+      transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 0.25s ease,
+      box-shadow 0.25s ease;
+  }
+
+  .step-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--color-brass);
+    box-shadow: 0 12px 24px -8px rgb(20 34 59 / 0.12);
+  }
+
+  /* Animações de entrada em cascata (Stagger) */
+  .animate-fade-up {
+    opacity: 0;
+    animation: fade-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .delay-100 {
+    animation-delay: 100ms;
+  }
+  .delay-200 {
+    animation-delay: 200ms;
+  }
+  .delay-300 {
+    animation-delay: 300ms;
+  }
+  .delay-400 {
+    animation-delay: 400ms;
+  }
+  .delay-500 {
+    animation-delay: 500ms;
+  }
+}
+
+@keyframes pole-slide {
+  to {
+    background-position-x: 79.196px;
+  }
+}
+
+@keyframes pole-spin-loop {
+  from {
+    background-position:
+      0 0,
+      0 0;
+  }
+  to {
+    background-position:
+      0 0,
+      0 124.45px;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pole,
+  .pole-stripe-loading,
+  .animate-fade-up {
+    animation: none;
+    opacity: 1;
+  }
+  .step-card,
+  .brass-card {
+    transition: none;
+  }
 }

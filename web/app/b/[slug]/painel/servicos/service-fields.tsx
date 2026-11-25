@@ -8,7 +8,7 @@ export function ServiceFields({ defaults }: ServiceFieldsProps) {
   return (
     <div className="grid gap-4 sm:grid-cols-3">
       <Field
-        label="Nome"
+        label="Nome do serviço"
         name="name"
         defaultValue={defaults?.name}
         minLength={2}

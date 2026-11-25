@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react';
 import { Field } from '@/components/field';
-import { buttonPrimary } from '@/components/ui';
+import { buttonPrimary, inputClass } from '@/components/ui';
 import { createTimeBlockAction } from './schedule-actions';
 
 type FormState = {
@@ -14,13 +14,13 @@ const initialState: FormState = {};
 
 function DateTimeField({ label, name }: { label: string; name: string }) {
   return (
-    <label className="block space-y-1">
-      <span className="text-sm font-medium">{label}</span>
+        <label className="block space-y-1.5">
+      <span className="block text-sm font-semibold">{label}</span>
       <input
         type="datetime-local"
         name={name}
         required
-        className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-zinc-900"
+        className={inputClass}
       />
     </label>
   );

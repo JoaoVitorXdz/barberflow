@@ -15,13 +15,25 @@ e integração contínua.
 
 ## Telas
 
-| Escolher o horário | Agendamento confirmado |
+| Início | Escolher o horário |
 |---|---|
-| ![Escolha de serviço, barbeiro, dia e horário](docs/images/01-agendar.png) | ![Agendamento confirmado](docs/images/02-confirmacao.png) |
+| ![Página inicial com o poste de barbeiro](docs/images/01-inicio.png) | ![Escolha de serviço, barbeiro, dia e horário](docs/images/02-agendar.png) |
 
-| Meus agendamentos | Documentação da API (Swagger) |
+| Meus agendamentos | Painel: agenda do dia |
 |---|---|
-| ![Lista de agendamentos com cancelamento](docs/images/03-meus-agendamentos.png) | ![Swagger UI](docs/images/04-swagger.png) |
+| ![Agendamentos do cliente, com cancelamento](docs/images/03-meus-agendamentos.png) | ![Agenda do dia por barbeiro](docs/images/04-painel-agenda.png) |
+
+| Painel: jornada e folgas de um barbeiro | Documentação da API (Swagger) |
+|---|---|
+| ![Jornada semanal e folgas](docs/images/05-painel-barbeiro.png) | ![Swagger UI](docs/images/06-swagger.png) |
+
+## Identidade visual
+
+O visual parte do universo da barbearia: o azulejo branco (fundo), a placa de esmalte azul
+(texto, botões e cabeçalho), o poste de listras vermelhas e azuis (a faixa do cabeçalho e o
+poste da página inicial) e o latão nos filetes. Os títulos usam a fonte Bevan, de letreiro,
+e o texto usa a Barlow, inspirada em placas de sinalização. As cores ficam num único bloco
+do `web/app/globals.css`, então trocar a paleta é rápido.
 
 ## O que o sistema faz
 

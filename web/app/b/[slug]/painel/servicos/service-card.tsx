@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useState, useTransition } from 'react';
-import { buttonPrimary, buttonSecondary, card } from '@/components/ui';
+import { buttonPrimary, buttonSecondary } from '@/components/ui';
 import type { ServiceItem } from '@/lib/booking-types';
 import { centsToInput, formatDuration, formatPrice } from '@/lib/format';
 import { setServiceActiveAction, updateServiceAction } from './actions';
@@ -64,78 +64,126 @@ export function ServiceCard({
 
   if (editing) {
     return (
-      <form action={formAction} className={`${card} space-y-4`}>
-        <ServiceFields
-          defaults={{
-            name: service.name,
-            duration: String(service.durationMinutes),
-            price: centsToInput(service.priceCents),
-          }}
-        />
-        {state.error && (
-          <p role="alert" className="text-sm text-red-600">
-            {state.error}
-          </p>
+      <div className="animate-fade-up brass-card overflow-hidden bg-zinc-50/70">
+        {saving && (
+          <div
+            className="pole-stripe pole-stripe-loading"
+            aria-hidden="true"
+          />
         )}
-        <div className="flex gap-3">
-          <button type="submit" disabled={saving} className={buttonPrimary}>
-            {saving ? 'Salvando...' : 'Salvar'}
-          </button>
-          <button
-            type="button"
-            onClick={() => setEditing(false)}
-            className={buttonSecondary}
-          >
-            Cancelar
-          </button>
-        </div>
-      </form>
+
+        <form action={formAction} className="space-y-4 p-5 sm:p-6">
+          <div className="flex items-center justify-between border-b border-zinc-200 pb-2.5">
+            <span className="text-xs font-bold tracking-wider text-brass uppercase">
+              Editando: {service.name}
+            </span>
+          </div>
+
+          <ServiceFields
+            defaults={{
+              name: service.name,
+              duration: String(service.durationMinutes),
+              price: centsToInput(service.priceCents),
+            }}
+          />
+
+          {state.error && (
+            <p
+              role="alert"
+              className="rounded-sm border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm font-medium text-red-700"
+            >
+              {state.error}
+            </p>
+          )}
+
+          <div className="flex flex-wrap gap-2.5 pt-1">
+            <button
+              type="submit"
+              disabled={saving}
+              className={`${buttonPrimary} cursor-pointer px-4 py-2 text-sm transition-transform active:scale-[0.98]`}
+            >
+              {saving ? 'Salvando...' : 'Salvar alterações'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className={`${buttonSecondary} cursor-pointer px-4 py-2 text-sm`}
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
     );
   }
 
   return (
     <div
-      className={`${card} flex flex-wrap items-center justify-between gap-4 ${
-        service.active ? '' : 'opacity-60'
+      className={`flex flex-wrap items-center justify-between gap-4 rounded-sm border border-zinc-300 border-l-4 bg-white p-4 transition-all duration-200 sm:px-5 ${
+        service.active
+          ? 'border-l-brass shadow-2xs hover:-translate-y-0.5 hover:shadow-sm'
+          : 'border-l-zinc-400 bg-zinc-100/70 opacity-70'
       }`}
     >
-      <div className="space-y-1">
-        <p className="font-medium">{service.name}</p>
-        <p className="text-sm text-zinc-600">
-          {formatDuration(service.durationMinutes)} ·{' '}
-          {formatPrice(service.priceCents)}
-        </p>
+      <div className="space-y-1.5">
+        <p className="text-base font-bold text-zinc-900">{service.name}</p>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="rounded-sm bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-700">
+            {formatDuration(service.durationMinutes)}
+          </span>
+          <span className="text-zinc-300" aria-hidden="true">
+            •
+          </span>
+          <span className="font-bold text-zinc-900 tabular-nums">
+            {formatPrice(service.priceCents)}
+          </span>
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
         <span
-          className={`rounded-full px-3 py-1 text-xs font-medium ${
+          className={`inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-xs font-bold tracking-wide uppercase ${
             service.active
-              ? 'bg-emerald-50 text-emerald-700'
-              : 'bg-zinc-100 text-zinc-600'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : 'border-zinc-300 bg-zinc-200/70 text-zinc-600'
           }`}
         >
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${
+              service.active ? 'bg-emerald-600' : 'bg-zinc-500'
+            }`}
+            aria-hidden="true"
+          />
           {service.active ? 'Ativo' : 'Inativo'}
         </span>
+
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className={buttonSecondary}
+          className={`${buttonSecondary} cursor-pointer px-3.5 py-1.5 text-sm`}
         >
           Editar
         </button>
+
         <button
           type="button"
           onClick={toggle}
           disabled={toggling}
-          className={buttonSecondary}
+          className={`${buttonSecondary} cursor-pointer px-3.5 py-1.5 text-sm`}
         >
-          {service.active ? 'Desativar' : 'Ativar'}
+          {toggling
+            ? 'Atualizando...'
+            : service.active
+              ? 'Desativar'
+              : 'Ativar'}
         </button>
       </div>
 
       {toggleError && (
-        <p role="alert" className="w-full text-sm text-red-600">
+        <p
+          role="alert"
+          className="w-full rounded-sm border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700"
+        >
           {toggleError}
         </p>
       )}
